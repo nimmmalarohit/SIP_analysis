@@ -4061,6 +4061,283 @@ class OptimalInvestmentDayAnalyzer:
                         finalValueData.push(data.final_value);
                         returnData.push(data.return_pct);
                     }
+
+                backPerfChart.options.plugins.title.text = `${ticker.toUpperCase()} Strategy Performance`;
+                backReturnChart.options.plugins.title.text = `${ticker.toUpperCase()} Strategy Returns`;
+            } else {
+                // No data or all tickers selected - show sample data
+                strategyLabels.push('Daily', 'Weekly', 'Optimal');
+                investedData.push(400, 360, 480);
+                finalValueData.push(450, 410, 540);
+                returnData.push(12.5, 13.8, 12.5);
+
+                backPerfChart.options.plugins.title.text = 'Strategy Performance';
+                backReturnChart.options.plugins.title.text = 'Strategy Returns';
+            }
+
+            // Update charts
+            backPerfChart.data.labels = strategyLabels;
+            backPerfChart.data.datasets[0].data = investedData;
+            backPerfChart.data.datasets[1].data = finalValueData;
+            backPerfChart.update();
+
+            backReturnChart.data.labels = strategyLabels;
+            backReturnChart.data.datasets[0].data = returnData;
+            backReturnChart.update();
+        }
+
+        // Enhanced Investment Calculator Function with proper compounding
+        function calculateInvestment() {
+            const amount = parseFloat(document.getElementById('investmentAmount').value);
+            const period = parseInt(document.getElementById('investmentPeriod').value);
+            const ticker = document.getElementById('investmentTicker').value;
+
+            if (isNaN(amount) || isNaN(period) || amount <= 0 || period <= 0) {
+                alert('Please enter valid numbers for investment amount and period');
+                return;
+            }
+
+            // Get backtest results
+            let dailyReturn = 0;
+            let weeklyReturn = 0;
+            let optimalReturn = 0;
+            let lookbackPeriod = lookbackFilter.value;
+
+            if (results[ticker] && 
+                results[ticker][lookbackPeriod] && 
+                results[ticker][lookbackPeriod]['backtest_results'] &&
+                results[ticker][lookbackPeriod]['backtest_results']['strategies']) {
+
+                const strategies = results[ticker][lookbackPeriod]['backtest_results']['strategies'];
+
+                if (strategies.daily) dailyReturn = strategies.daily.return_pct / 100;
+                if (strategies.weekly) weeklyReturn = strategies.weekly.return_pct / 100;
+                if (strategies.optimal) optimalReturn = strategies.optimal.return_pct / 100;
+            }
+
+            // Trading constants
+            const tradingDaysPerYear = 252;
+            const weeksPerYear = 52;
+            const monthsPerYear = 12;
+
+            // Calculate daily, weekly, and monthly rates
+            // For accurate compound interest, we convert the period return to daily/weekly/monthly rates
+
+            // Annualize returns if lookback period is not 1 year
+            const lookbackYears = parseFloat(lookbackPeriod);
+
+            if (lookbackYears !== 1) {
+                // Use compound annual growth rate formula: (1 + return)^(1/years) - 1
+                dailyReturn = Math.pow(1 + dailyReturn, 1 / lookbackYears) - 1;
+                weeklyReturn = Math.pow(1 + weeklyReturn, 1 / lookbackYears) - 1; 
+                optimalReturn = Math.pow(1 + optimalReturn, 1 / lookbackYears) - 1;
+            }
+
+            // Convert annual returns to period returns for proper compounding
+            const dailyRate = Math.pow(1 + dailyReturn, 1/tradingDaysPerYear) - 1;
+            const weeklyRate = Math.pow(1 + weeklyReturn, 1/weeksPerYear) - 1;
+            const monthlyRate = Math.pow(1 + optimalReturn, 1/monthsPerYear) - 1;
+
+            // Amount per investment period
+            const dailyAmount = amount / (tradingDaysPerYear / monthsPerYear);
+            const weeklyAmount = amount / (weeksPerYear / monthsPerYear);
+            const monthlyAmount = amount;
+
+            // Year labels for chart
+            const labels = Array.from({length: period + 1}, (_, i) => `Year ${i}`);
+
+            // Track investments over time for each strategy
+            const strategies = {
+                daily: {
+                    name: 'Daily',
+                    description: `Investing $${dailyAmount.toFixed(2)} every trading day`,
+                    rate: dailyRate,
+                    annualRate: dailyReturn,
+                    periodsPerYear: tradingDaysPerYear,
+                    periodsPerMonth: tradingDaysPerYear / monthsPerYear,
+                    amountPerPeriod: dailyAmount,
+                    values: [0]
+                },
+                weekly: {
+                    name: 'Weekly',
+                    description: `Investing $${weeklyAmount.toFixed(2)} every week`,
+                    rate: weeklyRate,
+                    annualRate: weeklyReturn,
+                    periodsPerYear: weeksPerYear,
+                    periodsPerMonth: weeksPerYear / monthsPerYear,
+                    amountPerPeriod: weeklyAmount,
+                    values: [0]
+                },
+                optimal: {
+                    name: 'Optimal Day',
+                    description: `Investing $${monthlyAmount.toFixed(2)} on optimal days each month`,
+                    rate: monthlyRate,
+                    annualRate: optimalReturn,
+                    periodsPerYear: monthsPerYear,
+                    periodsPerMonth: 1,
+                    amountPerPeriod: monthlyAmount,
+                    values: [0]
+                }
+            };
+
+            // Perform the actual compound calculations for each strategy
+            Object.keys(strategies).forEach(key => {
+                const strategy = strategies[key];
+                let totalInvested = 0;
+                let portfolioValue = 0;
+
+                // Simulate each year
+                for (let year = 1; year <= period; year++) {
+                    // Simulate each month in the year
+                    for (let month = 1; month <= 12; month++) {
+                        // Simulate each investment period in the month
+                        for (let i = 1; i <= strategy.periodsPerMonth; i++) {
+                            // Add the new investment
+                            totalInvested += strategy.amountPerPeriod;
+                            portfolioValue += strategy.amountPerPeriod;
+
+                            // Apply compounding for this period
+                            portfolioValue *= (1 + strategy.rate);
+                        }
+                    }
+
+                    // Store year-end value
+                    strategy.values.push(portfolioValue);
+                }
+
+                // Calculate final statistics
+                strategy.totalInvested = totalInvested;
+                strategy.finalValue = portfolioValue;
+                strategy.profit = portfolioValue - totalInvested;
+                strategy.returnPct = (portfolioValue / totalInvested - 1) * 100;
+            });
+
+            // Determine best strategy
+            let bestStrategy = 'daily';
+            if (strategies.weekly.returnPct > strategies[bestStrategy].returnPct) {
+                bestStrategy = 'weekly';
+            }
+            if (strategies.optimal.returnPct > strategies[bestStrategy].returnPct) {
+                bestStrategy = 'optimal';
+            }
+
+            // Mark best strategy
+            strategies[bestStrategy].isBest = true;
+
+            // Update chart
+            invProjChart.data.labels = labels;
+            invProjChart.data.datasets = [
+                {
+                    label: `Daily (+${(strategies.daily.annualRate * 100).toFixed(2)}% annual)`,
+                    data: strategies.daily.values,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.1
+                },
+                {
+                    label: `Weekly (+${(strategies.weekly.annualRate * 100).toFixed(2)}% annual)`,
+                    data: strategies.weekly.values,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.1
+                },
+                {
+                    label: `Optimal Day (+${(strategies.optimal.annualRate * 100).toFixed(2)}% annual)`,
+                    data: strategies.optimal.values,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    tension: 0.1
+                }
+            ];
+            invProjChart.options.plugins.title.text = `${ticker.toUpperCase()} Projected Growth ($${amount}/month)`;
+            invProjChart.update();
+
+            // Build enhanced table HTML with more details
+            let tableHtml = '';
+
+            ['daily', 'weekly', 'optimal'].forEach(key => {
+                const strategy = strategies[key];
+                tableHtml += `
+                <tr>
+                    <td class="py-2 px-4 border-b">
+                        ${strategy.name}
+                        <div class="text-xs text-gray-500">${strategy.description}</div>
+                    </td>
+                    <td class="py-2 px-4 border-b">
+                        $${strategy.totalInvested.toFixed(2)}
+                        <div class="text-xs text-gray-500">${period} years × $${(strategy.amountPerPeriod * strategy.periodsPerMonth * 12).toFixed(2)}/year</div>
+                    </td>
+                    <td class="py-2 px-4 border-b">$${strategy.finalValue.toFixed(2)}</td>
+                    <td class="py-2 px-4 border-b">
+                        $${strategy.profit.toFixed(2)}
+                        <div class="text-xs text-gray-500">+${strategy.returnPct.toFixed(2)}%</div>
+                    </td>
+                    <td class="py-2 px-4 border-b">
+                        ${strategy.returnPct.toFixed(2)}%
+                        <div class="text-xs text-gray-500">${(strategy.annualRate * 100).toFixed(2)}% annual</div>
+                    </td>
+                    <td class="py-2 px-4 border-b">${strategy.isBest ? '<span class="bg-green-100 text-green-800 px-2 py-1 rounded">★ Best</span>' : ''}</td>
+                </tr>
+                `;
+            });
+
+            const investmentTable = document.getElementById('investmentTable');
+            if (investmentTable) {
+                investmentTable.innerHTML = tableHtml;
+            }
+
+            // Add calculation details explanation under the table - improved with clearer methodology
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'mt-4 p-4 bg-blue-50 rounded text-sm';
+            detailsDiv.id = 'calculationDetails';
+            detailsDiv.innerHTML = `
+                <h4 class="font-medium mb-2">Calculation Details</h4>
+                <p><strong>Daily Strategy:</strong> Invests $${dailyAmount.toFixed(2)} every trading day (${Math.round(tradingDaysPerYear/monthsPerYear)} trading days per month).</p>
+                <p><strong>Weekly Strategy:</strong> Invests $${weeklyAmount.toFixed(2)} every week (${Math.round(weeksPerYear/monthsPerYear)} weeks per month).</p>
+                <p><strong>Optimal Day Strategy:</strong> Invests $${monthlyAmount.toFixed(2)} on the best day(s) each month based on historical analysis.</p>
+
+                <p class="mt-2"><strong>Compounding Methodology:</strong> Returns are compounded at each investment interval (daily, weekly, or monthly).</p>
+                <p><strong>Annual Returns:</strong> Daily: ${(strategies.daily.annualRate*100).toFixed(2)}%, Weekly: ${(strategies.weekly.annualRate*100).toFixed(2)}%, Optimal: ${(strategies.optimal.annualRate*100).toFixed(2)}%</p>
+                <p class="text-xs text-gray-600 mt-1">Note: Returns are based on ${lookbackYears} year historical data and have been annualized for projection purposes.</p>
+            `;
+
+            // Add or replace the details explanation (ensure only one appears)
+            const existingDetails = document.getElementById('calculationDetails');
+            if (existingDetails) {
+                existingDetails.parentNode.replaceChild(detailsDiv, existingDetails);
+            } else {
+                const tableContainer = investmentTable.parentNode;
+                tableContainer.appendChild(detailsDiv);
+            }
+        }
+
+        // Helper function to get ticker colors
+        function getTrendColor(ticker) {
+            const colors = {
+                'spy': 'rgba(54, 162, 235, 1)',
+                'smh': 'rgba(153, 102, 255, 1)',
+                'slv': 'rgba(192, 192, 192, 1)',
+                'gld': 'rgba(255, 206, 86, 1)',
+                'qtum': 'rgba(75, 192, 192, 1)'
+            };
+
+            return colors[ticker.toLowerCase()] || 'rgba(54, 162, 235, 1)';
+        }
+
+        function getTrendColorWithOpacity(ticker, opacity) {
+            const colors = {
+                'spy': `rgba(54, 162, 235, ${opacity})`,
+                'smh': `rgba(153, 102, 255, ${opacity})`,
+                'slv': `rgba(192, 192, 192, ${opacity})`,
+                'gld': `rgba(255, 206, 86, ${opacity})`,
+                'qtum': `rgba(75, 192, 192, ${opacity})`
+            };
+
+            return colors[ticker.toLowerCase()] || `rgba(54, 162, 235, ${opacity})`;
+        }
         });
             </script>
             </body>
