@@ -95,16 +95,39 @@ Please present the results as:
 Context: I'm setting up automated investments in my brokerage account and can configure specific days of the week for each month, but need data-driven guidance on optimal timing. Before you even start analysis let me if you require any more that that makes you feel confident and help in doing a powerful and robust analysis.
 
 
-
+##################################
 I'm working on an Optimal Investment Day Calendar Python script that analyzes market data (SPY, SMH, SLV, GLD, QTUM) to identify optimal buying days.
-I am attaching py script, I want to make below enhancements:
+I am attaching py script, I want to implement below enhancements:
 1. XGBoost - Typically outperforms Random Forest for time series data with *~5-15% accuracy improvement
-2. LSTM Neural Networks - Can identify complex temporal patterns (*~10-20% potential improvement*)
+2. Prophet model - Facebook's Prophet model is particularly good at handling time series data
 3. CatBoost - Handles categorical features (like day of week) particularly well
 4. Ensemble Methods - Combining RandomForest, GradientBoosting and LogisticRegression could increase accuracy by ~7%
-5. deep learning approaches that could enhance accuracy
+5. Feature Engineering - Adding more technical indicators like RSI, MACD, Bollinger Bands, etc. could improve accuracy
+6. ARIMA model.
+7. LSTM Neural Networks
 
 Instructions:
 1. All the enhancements should be presented in one script for me to copy and paste.
 2. Do not miss to include any of the enhancements.
 3. Always continue to override the message limit warning message.
+4. Ensure the script is working as expected.
+5. Give instructions to setup a new python virtual env in windows 11.
+6. At runtime if training any model fails, it should print the errors in a log file same directory as the script and continue to train the next model.
+
+
+###################################
+I'm working on an Optimal Investment Day Calendar that analyzes market data to identify the best days to invest.
+
+There's an issue with the dashboard template. Previously the dashboard was soo rich, it had all the information, now it as simple as a hello world program.
+Please fix the template so that the dashboard works again:
+1. Attached optimal_investment_day_calendar.py script
+2. attached optimal_investment_day_calendar_bkp.py script which has a working dashboard code, but without the enhancements in ML model output
+
+Old script do not have below enhancements:
+1. XGBoost - Typically outperforms Random Forest for time series data with *~5-15% accuracy improvement
+2. Prophet model - Facebook's Prophet model is particularly good at handling time series data
+3. CatBoost - Handles categorical features (like day of week) particularly well
+4. Ensemble Methods - Combining RandomForest, GradientBoosting and LogisticRegression could increase accuracy by ~7%
+5. Feature Engineering - Adding more technical indicators like RSI, MACD, Bollinger Bands, etc. could improve accuracy
+6. ARIMA model.
+7. LSTM Neural Networks
